@@ -1,0 +1,172 @@
+// Some measurements done by hand, but most are taken from:
+// https://datasheets.raspberrypi.com/rpi3/raspberry-pi-3-b-plus-product-brief.pdf
+
+
+width = 56 // Overall width of the PCB
+length = 85 // Overall length of the PCB
+pcbHeight = 1
+cornerRadius = 3
+mountingHoleHorizontalSpacing = 58
+mountingHoleOffset = 3.5
+mountingHoleRadius = 2.75 / 2
+mountingHoleClearanceDiameter = 6
+
+fn rectangle = (pos, rectLength, rectWidth, sketchStart) => {
+  return startProfileAt(pos, %)
+  |> angledLine([0, rectLength], %, $bottom)
+  |> angledLine([segAng(bottom) + 90, rectWidth], %, $right)
+  |> angledLine([segAng(bottom), -segLen(bottom)], %, $top)
+  |> lineTo([profileStartX(%), profileStartY(%)], %, $left)
+  |> close(%)
+}
+
+pcbSketch = startSketchOn('XY')
+  |> rectangle([0, 0], length, width, %)
+  |> hole(circle({
+       center: [mountingHoleOffset, mountingHoleOffset],
+       radius: mountingHoleRadius
+     }, %), %)
+  |> hole(circle({
+       center: [
+         mountingHoleOffset + mountingHoleHorizontalSpacing,
+         mountingHoleOffset
+       ],
+       radius: mountingHoleRadius
+     }, %), %)
+  |> hole(circle({
+       center: [
+         mountingHoleOffset,
+         width - mountingHoleOffset
+       ],
+       radius: mountingHoleRadius
+     }, %), %)
+  |> hole(circle({
+       center: [
+         mountingHoleOffset + mountingHoleHorizontalSpacing,
+         width - mountingHoleOffset
+       ],
+       radius: mountingHoleRadius
+     }, %), %)
+pcb = pcbSketch
+  |> extrude(pcbHeight, %)
+  |> fillet({
+       radius: cornerRadius,
+       tags: [
+         getPreviousAdjacentEdge(pcbSketch.tags.top),
+         getPreviousAdjacentEdge(pcbSketch.tags.bottom),
+         getPreviousAdjacentEdge(pcbSketch.tags.right),
+         getPreviousAdjacentEdge(pcbSketch.tags.left)
+       ]
+     }, %)
+
+fn block = (pos, blockLength, blockWidth, blockHeight, sketchStart) => {
+  return sketchStart
+  |> rectangle(pos, blockLength, blockWidth, %)
+  |> extrude(blockHeight, %)
+}
+
+fn rightOverhangingBlock = (blockY, blockOverhang, blockLength, blockWidth, blockHeight, sketchStart) => {
+  return sketchStart
+  |> block([
+       length - blockLength + blockOverhang,
+       blockY - (blockWidth / 2)
+     ], blockLength, blockWidth, blockHeight, %)
+}
+
+fn bottomOverhangingBlock = (blockX, blockOverhang, blockLength, blockWidth, blockHeight, sketchStart) => {
+  return sketchStart
+  |> block([
+       blockX - (blockLength / 2),
+       -blockOverhang
+     ], blockLength, blockWidth, blockHeight, %)
+}
+
+fn centeredBlock = (blockX, blockY, blockLength, blockWidth, blockHeight, sketchStart) => {
+  return sketchStart
+  |> block([
+       blockX - (blockLength / 2),
+       blockY - (blockWidth / 2),
+     ], blockLength, blockWidth, blockHeight, %)
+}
+
+// USB port blocks
+// There are two USB A ports stacked vertically.
+usbLength = 17
+usbWidth = 12
+usbOverhang = 1.5
+usbHeight = 15
+
+usbBlock1 = startSketchOn(pcb, 'END')
+  |> rightOverhangingBlock(29, usbOverhang, usbLength, usbWidth, usbHeight, %)
+
+usbBlock2 = startSketchOn(pcb, 'END')
+  |> rightOverhangingBlock(47, usbOverhang, usbLength, usbWidth, usbHeight, %)
+
+// Ethernet port
+ethernetLength = 21
+ethernetWidth = 15
+ethernetOverhang = 1
+ethernetHeight = 13
+ethernet = startSketchOn(pcb, 'END')
+  |> rightOverhangingBlock(10.25, ethernetOverhang, ethernetLength, ethernetWidth, ethernetHeight, %)
+
+
+// Dimensions for both camera and display 22-pin plugs
+cameraPlugWidth = 20
+cameraPlugLength = 2
+cameraPlugHeight = 4.5
+
+// Display plug is on the left side of the board
+displayX = 3.5
+displayY = 28
+display = startSketchOn(pcb, 'END')
+  |> centeredBlock(displayX, displayY, cameraPlugLength, cameraPlugWidth, cameraPlugHeight, %)
+
+powerUsbOverhang = 0.5
+powerUsbLength = 6.5
+powerUsbWidth = 5
+powerUsbHeight = 2.25
+powerUsb = startSketchOn(pcb, 'END')
+  |> bottomOverhangingBlock(10.6, powerUsbOverhang, powerUsbLength, powerUsbWidth, powerUsbHeight, %)
+
+
+hdmiOverhang = 1
+hdmiLength = 15
+hdmiWidth = 11
+hdmiHeight = 5
+hdmiX = 32
+hdmi = startSketchOn(pcb, 'END')
+  |> bottomOverhangingBlock(hdmiX, hdmiOverhang, hdmiLength, hdmiWidth, hdmiHeight, %)
+
+cameraX = hdmiX + 13 // reference drawing gave this in relation to hdmi
+cameraY = 11.5
+camera = startSketchOn(pcb, 'END')
+  |> centeredBlock(cameraX, cameraY, cameraPlugLength, cameraPlugWidth, cameraPlugHeight, %)
+
+avOverhang = 2
+avLength = 6
+avWidth = 14
+avHeight = 6
+avX = 53.3
+av = startSketchOn(pcb, 'END')
+  |> bottomOverhangingBlock(avX, avOverhang, avLength, avWidth, avHeight, %)
+
+
+pinHeight = 8
+
+// GPIO pins
+gpioLength = 50
+gpioWidth = 4
+gpioHeight = pinHeight
+gpioX = mountingHoleOffset + 29
+gpioY = width - mountingHoleOffset
+gpio = startSketchOn(pcb, 'END')
+  |> centeredBlock(gpioX, gpioY, gpioLength, gpioWidth, gpioHeight, %)
+
+poeLength = 4
+poeWidth = 4
+poeHeight = pinHeight
+poeX = mountingHoleOffset + 58
+poeY = width - 9.623
+poe = startSketchOn(pcb, 'END')
+  |> centeredBlock(poeX, poeY, poeLength, poeWidth, poeHeight, %)
